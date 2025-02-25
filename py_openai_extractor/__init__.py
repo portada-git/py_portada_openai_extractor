@@ -1,0 +1,1 @@
+from .portada_autonewsextractor_adaptor import AutonewsExtractorAdaptor, AutonewsExtractorAdaptorBuilder

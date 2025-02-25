@@ -8,9 +8,10 @@ setup(name='py_openai_extractor',
     license='MIT',
     url="https://github.com/portada-git/py_portada_openai_extractor.git",
     packages=['py_openai_extractor'],
-    py_modules=['extractor', portada_autonewsextractor_adaptor],
+    py_modules=['extractor', 'portada_autonewsextractor_adaptor'],
     install_requires=[
-	'openai',
+	    'openai',
+        'babel',
     ],
     python_requires='>=3.9',
     zip_safe=False)
