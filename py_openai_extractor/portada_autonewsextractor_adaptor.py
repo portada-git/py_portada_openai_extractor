@@ -43,6 +43,7 @@ class AutonewsExtractorAdaptorBuilder:
 
     def with_field_definitions(self, field_definitions: Dict[str, str]):
         self._field_definitions = field_definitions
+        return self
 
     def build(self) -> 'AutonewsExtractorAdaptor':
         adaptor = AutonewsExtractorAdaptor(self._api_key, self._config_json, self._field_definitions)

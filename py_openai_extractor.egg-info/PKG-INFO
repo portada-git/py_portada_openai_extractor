@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: py-openai-extractor
+Version: 0.0.2
+Summary: news extractor using openai
+Home-page: https://github.com/portada-git/py_portada_openai_extractor.git
+Author: PortADa team
+Author-email: jcbportada@gmail.com
+License: MIT
+Requires-Python: >=3.9
+License-File: LICENSE

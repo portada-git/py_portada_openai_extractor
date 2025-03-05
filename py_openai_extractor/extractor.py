@@ -74,13 +74,17 @@ class InfoExtractor:
         models_to_try = [self._model, self._fallback_model]
         last_raw_content = None
 
-        try_a_new_time = False
+        try_a_new_time = True
         for model in models_to_try:
+            if try_a_new_time:
+                try_a_new_time = False
+            else:
+                break
             try:
                 respuesta = self._client.chat.completions.create(
                     model=model,
                     messages=self._create_messages(texto),
-                    response_format={"type": "json_object"},
+                    response_format=self._json_schema,
                     **self._model_config
                 )
 
@@ -111,7 +115,7 @@ class InfoExtractor:
                     print(f"Intentando con el modelo de respaldo: {self._fallback_model}")
                     try_a_new_time = True
 
-        return None  # Este return solo se alcanzará si hay un error inesperado en la lógica del bucle
+        return resp  # Este return solo se alcanzará si hay un error inesperado en la lógica del bucle
 
     # def extraer_informacion(self, texto: str) -> Union[Dict[str, Any], str, None]:
     #     if not all([self._client, self._model, self._json_schema]):

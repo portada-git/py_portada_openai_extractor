@@ -1,0 +1,3 @@
+extractor
+portada_autonewsextractor_adaptor
+py_openai_extractor
