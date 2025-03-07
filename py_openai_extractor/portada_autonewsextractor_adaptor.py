@@ -3,12 +3,12 @@ from.extractor import InfoExtractor
 
 
 class AutonewsExtractorAdaptor:
-    def __init__(self, api_key: str, config_json: Dict[str, Any], field_definitions: Dict[str, str]):
+    def __init__(self, api_key: str, config_json: Dict[str, Any]):
         self._config_json = config_json
         self._api_key = api_key
         self._extractor = InfoExtractor()
         self._extractor.set_api_key(self._api_key).set_model(config_json['model'])\
-            .set_field_definitions(field_definitions)\
+            .set_field_definitions(config_json['ai_instructions']['field_definitions'])\
             .set_json_template(config_json['ai_instructions']['json_template'])\
             .set_json_schema(config_json['ai_instructions']['json_schema'])\
             .set_model_config(config_json['model_config'])\
@@ -30,7 +30,6 @@ class AutonewsExtractorAdaptor:
 class AutonewsExtractorAdaptorBuilder:
     def __init__(self):
         self._config_json = None
-        self._field_definitions = None
         self._api_key = None
 
     def with_api_key(self, apikey: str) -> 'AutonewsExtractorAdaptorBuilder':
@@ -46,5 +45,5 @@ class AutonewsExtractorAdaptorBuilder:
         return self
 
     def build(self) -> 'AutonewsExtractorAdaptor':
-        adaptor = AutonewsExtractorAdaptor(self._api_key, self._config_json, self._field_definitions)
+        adaptor = AutonewsExtractorAdaptor(self._api_key, self._config_json)
         return adaptor
