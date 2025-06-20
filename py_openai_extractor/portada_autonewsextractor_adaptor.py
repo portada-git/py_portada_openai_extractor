@@ -1,19 +1,23 @@
 from typing import Dict, Any
-from.extractor import InfoExtractor
+from.extractor import InfoExtractorBuilder
 
 
 class AutonewsExtractorAdaptor:
     def __init__(self, api_key: str, config_json: Dict[str, Any]):
         self._config_json = config_json
         self._api_key = api_key
-        self._extractor = InfoExtractor()
-        self._extractor.set_api_key(self._api_key).set_model(config_json['model'])\
-            .set_field_definitions(config_json['ai_instructions']['field_definitions'])\
-            .set_json_template(config_json['ai_instructions']['json_template'])\
-            .set_json_schema(config_json['ai_instructions']['json_schema'])\
-            .set_model_config(config_json['model_config'])\
-            .set_examples(config_json['ai_instructions']['examples'])\
-            .set_messages_config(config_json['ai_instructions']['messages_config'])
+        api = config_json['api'] if "api" in config_json else None
+        base_url = config_json['base_url'] if "base_url" in config_json else None
+        self._extractor = InfoExtractorBuilder().with_api_key(api_key)\
+            .with_model(config_json['model'])\
+            .with_base_url(base_url)\
+            .with_field_definitions(config_json['ai_instructions']['field_definitions'])\
+            .with_json_template(config_json['ai_instructions']['json_template'])\
+            .with_json_schema(config_json['ai_instructions']['json_schema'])\
+            .with_model_config(config_json['model_config'])\
+            .with_examples(config_json['ai_instructions']['examples'])\
+            .with_messages_config(config_json['ai_instructions']['messages_config'])\
+            .build(api)
 
     @property
     def config_json(self):
@@ -40,9 +44,9 @@ class AutonewsExtractorAdaptorBuilder:
         self._config_json = config_json
         return self
 
-    def with_field_definitions(self, field_definitions: Dict[str, str]):
-        self._field_definitions = field_definitions
-        return self
+    # def with_field_definitions(self, field_definitions: Dict[str, str]):
+    #     self._field_definitions = field_definitions
+    #     return self
 
     def build(self) -> 'AutonewsExtractorAdaptor':
         adaptor = AutonewsExtractorAdaptor(self._api_key, self._config_json)

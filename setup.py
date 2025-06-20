@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='py_openai_extractor',
-    version='0.0.4',
+    version='0.0.5',
     description='news extractor using openai',
     author='PortADa team',
     author_email='jcbportada@gmail.com',

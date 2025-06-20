@@ -1,36 +1,26 @@
-from openai import OpenAI
+# from configparser import NoOptionError
+
+# from babel.messages.extract import extract
+# from openai import OpenAI
 import json
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime, timedelta
 from babel.dates import format_date
+from .abstract_openai_agent import AbstractOpenAiChatAgent
 
 
-class InfoExtractor:
+class InfoExtractor(AbstractOpenAiChatAgent):
     def __init__(self):
-        self._client = None
-        self._model = None
+        super().__init__()
         self._fallback_model = "gpt-4o"
         self._json_schema = None
-        self._model_config = {}
-        self._field_definitions = {}
         self._messages_config = {}
+        self._field_definitions = {}
         self._json_template = {}
         self._examples = ""
 
-    def set_api_key(self, api_key: str) -> 'InfoExtractor':
-        self._client = OpenAI(api_key=api_key)
-        return self
-
-    def set_model(self, model: str) -> 'InfoExtractor':
-        self._model = model
-        return self
-
     def set_json_schema(self, json_schema: Dict[str, Any]) -> 'InfoExtractor':
         self._json_schema = json_schema
-        return self
-
-    def set_model_config(self, config: Dict[str, Any]) -> 'InfoExtractor':
-        self._model_config.update(config)
         return self
 
     def set_field_definitions(self, field_definitions: Dict[str, str]) -> 'InfoExtractor':
@@ -67,11 +57,25 @@ class InfoExtractor:
             {"role": "user", "content": user_message}
         ]
 
+    def process_request_from_client(self):
+        respuesta = self.client.chat.completions.create(
+            model=self.model,
+            # messages=self._create_messages(texto),
+            messages=self.messages,
+            response_format=self._json_schema,
+            **self._model_config
+        )
+        return respuesta
+
+
     def extraer_informacion(self, texto: str) -> Union[Dict[str, Any], str, None]:
         if not all([self._client, self._model, self._json_schema]):
             raise ValueError("La configuración del extractor está incompleta.")
+        if self._fallback_model is None:
+            models_to_try = [self._model]
+        else:
+            models_to_try = [self._model, self._fallback_model]
 
-        models_to_try = [self._model, self._fallback_model]
         last_raw_content = None
 
         try_a_new_time = True
@@ -81,13 +85,9 @@ class InfoExtractor:
             else:
                 break
             try:
-                respuesta = self._client.chat.completions.create(
-                    model=model,
-                    messages=self._create_messages(texto),
-                    response_format=self._json_schema,
-                    **self._model_config
-                )
-
+                self.model = model
+                self.messages = self._create_messages(texto)
+                respuesta = self.process_request_from_client()
                 contenido_respuesta = respuesta.choices[0].message.content
                 last_raw_content = contenido_respuesta
                 try:
@@ -109,55 +109,33 @@ class InfoExtractor:
                         message = f"{message}. Devolviendo el último contenido crudo obtenido, con el siguiente error: '{msg}'."
                         resp = {"status": -2, "json_type": False, "content": last_raw_content, "error_message": message}
                     else:
-                        message = f"No se pudo obtener ningún contenido. Se ha intentado com los modelos {models_to_try} sin éxito. Se devuelve None"
+                        last_msg = str(e)
+                        message = f"No se pudo obtener ningún contenido. Se ha intentado com los modelos {models_to_try} sin éxito. El último error ha sido(. Se devuelve None"
                         resp = {"status": -3, "json_type": False, "content": None, "error_message": message}
-                else:
+                elif self._fallback_model is not None:
                     print(f"Intentando con el modelo de respaldo: {self._fallback_model}")
                     try_a_new_time = True
+                else:
+                    message = (f"Se produjo un error procesando el contenido con el modelo {model}.Se ha devuelto la siguiente información: {str(e)}")
+                    resp = {"status": -3, "json_type": False, "content": None, "error_message": message}
 
         return resp  # Este return solo se alcanzará si hay un error inesperado en la lógica del bucle
 
-    # def extraer_informacion(self, texto: str) -> Union[Dict[str, Any], str, None]:
-    #     if not all([self._client, self._model, self._json_schema]):
-    #         raise ValueError("La configuración del extractor está incompleta.")
-    # 
-    #     try:
-    #         respuesta = self._client.chat.completions.create(
-    #             model=self._model,
-    #             messages=self._create_messages(texto),
-    #             response_format={"type": "json_object"},
-    #             **self._model_config
-    #         )
-    # 
-    #         contenido_respuesta = respuesta.choices[0].message.content
-    # 
-    #         try:
-    #             return json.loads(contenido_respuesta)
-    #         except json.JSONDecodeError:
-    #             print("No se pudo decodificar la respuesta como JSON. Devolviendo el contenido crudo.")
-    #             return contenido_respuesta
-    # 
-    #     except Exception as e:
-    #         print(f"Error al procesar la entrada: {str(e)}")
-    #         return None
 
-    # def extraer_informacion(self, texto: str) -> Optional[Dict[str, Any]]:
-    #     if not all([self._client, self._model, self._json_schema]):
-    #         raise ValueError("La configuración del extractor está incompleta.")
-    # 
-    #     try:
-    #         respuesta = self._client.chat.completions.create(
-    #             model=self._model,
-    #             messages=self._create_messages(texto),
-    #             response_format={"type": "json_object"},
-    #             **self._model_config
-    #         )
-    # 
-    #         return json.loads(respuesta.choices[0].message.content)
-    # 
-    #     except Exception as e:
-    #         print(f"Error al procesar la entrada: {str(e)}")
-    #         return None
+class GeminiInfoExtractor(InfoExtractor):
+    def __init__(self):
+        super().__init__()
+        self._fallback_model = None
+
+
+    def process_request_from_client(self):
+        respuesta = self.client.beta.chat.completions.parse(
+            model=self.model,
+            messages=self.messages,
+            response_format=self._json_schema,
+            **self._model_config
+        )
+        return respuesta
 
 
 class InfoExtractorBuilder:
@@ -170,9 +148,14 @@ class InfoExtractorBuilder:
         self._messages_config = {}
         self._json_template = {}
         self._examples = ""
+        self._base_url = None
 
     def with_api_key(self, api_key: str) -> 'InfoExtractorBuilder':
         self._api_key = api_key
+        return self
+
+    def with_base_url(self, base_url: str) -> 'InfoExtractorBuilder':
+        self._base_url = base_url
         return self
 
     def with_model(self, model: str) -> 'InfoExtractorBuilder':
@@ -203,9 +186,21 @@ class InfoExtractorBuilder:
         self._examples = examples
         return self
 
-    def build(self) -> InfoExtractor:
-        extractor = InfoExtractor() \
-            .set_api_key(self._api_key) \
+    def build(self, option=None) -> InfoExtractor:
+        if option is None and self._base_url is not None:
+            option = "GeminiInfoExtractor"
+        elif option is not None and option.lower().startswith("gemini") and self._base_url is None :
+            self._base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+        elif option is not None and self._base_url is None:
+            # raise ValueError("base_url mustn't be None if option is not none")
+            option = None
+
+        if option is None or option.startswith("openai"):
+            extractor = InfoExtractor()
+        else:
+            extractor = GeminiInfoExtractor()
+
+        extractor.set_api_key(self._api_key, self._base_url) \
             .set_model(self._model) \
             .set_json_schema(self._json_schema) \
             .set_model_config(self._model_config) \

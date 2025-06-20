@@ -3,7 +3,9 @@ README.md
 pyproject.toml
 setup.py
 py_openai_extractor/__init__.py
+py_openai_extractor/abstract_openai_agent.py
 py_openai_extractor/extractor.py
+py_openai_extractor/ocr_corrector.py
 py_openai_extractor/portada_autonewsextractor_adaptor.py
 py_openai_extractor.egg-info/PKG-INFO
 py_openai_extractor.egg-info/SOURCES.txt
