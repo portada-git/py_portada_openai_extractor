@@ -45,6 +45,7 @@ class QwenOcrProcessor(AbstractOpenAiChatAgent):
             "las imágenes proporcionadas para extraer el texto:\n\n "
         )
         self._base64_images = []
+        self._model = "qwen2.5-vl-32b-instruct"
         self._model_config = {
             "max_tokens": 8192,
             "top_p": 0.1,
