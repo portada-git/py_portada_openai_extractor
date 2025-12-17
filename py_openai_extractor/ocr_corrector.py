@@ -17,6 +17,7 @@ def remove_markdown(text):
     text = re.sub(r'$$(.*?)$$$.*?$$', r'\1', text)
     return text.strip()
 
+
 class QwenOcrProcessor(AbstractOpenAiChatAgent):
     def __init__(self):
         super().__init__()
@@ -118,6 +119,118 @@ class QwenOcrProcessor(AbstractOpenAiChatAgent):
         response = self.process_request_from_client()
         text = response.choices[0].message.content
         return remove_markdown(text)
+
+
+class GptOcrCorrector(AbstractOpenAiChatAgent):
+    def __init__(self):
+        super().__init__()
+        self.base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        self._system_message = "Eres un experto en corrección de textos OCR"
+        self._user_message = ("Corrige el texto extraído mediante OCR para que sea legible y fiel a los documentos "
+                              "originales escaneados.\n "
+                              "Debes inspeccionar tanto las imágenes proporcionadas como el texto extraído, y seguir "
+                              "estas pautas para realizar las correcciones necesarias.\n\n "
+                              "- Completa las omisiones del texto indicadas en las imágenes pero no capturadas por el "
+                              "OCR.\n "
+                              "- Corrige cualquier error de reconocimiento, como palabras mal escritas, signos de "
+                              "puntuación incorrectos, o frases mal interpretadas.\n "
+                              "  - Mantén intactos los fragmentos que no presentan errores evidentes ni omisiones.\n"
+                              "- Asegúrate de que el texto fluya en el orden correcto según el diseño visual original, "
+                              "ya que el OCR puede desordenar las palabras o las líneas.\n "
+                              "- Ordena y estructura el texto según el formato visual correcto, especialmente si "
+                              "aparece desordenado.\n "
+                              "  - Mantén la ortografía y la puntuación originales.\n"
+                              "- Combina palabras cortadas por líneas, elimina saltos de línea dentro de los párrafos y "
+                              "conserva los saltos únicamente entre párrafos distintos.\n "
+                              "- En el caso de los números (como fechas, cifras o referencias), presta especial "
+                              "atención a las imágenes originales más que al texto extraído, ya que suelen ser mal "
+                              "reconocidos por el OCR.\n\n "
+                              "# Output Format\n\n"
+                              "El texto debe ser presentado como un bloque legible y ordenado, sin explicaciones ni "
+                              "anotaciones adicionales. Asegúrate de que el contenido final sea una representación fiel "
+                              "de los documentos originales.\n\n "
+                              "# Notes\n\n"
+                              "A continuación, el texto extraído por OCR de archivo(s) relacionado(s) con la misma "
+                              "fecha. Utiliza todas las imágenes proporcionadas para corregir este texto:\n\n "
+                              )
+        self._text = ""
+        self._base64_images = []
+        self._model = "gpt-4o"
+        self._model_config = {
+            "max_tokens": 16384,
+            "top_p": 0,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+        }
+
+    def set_messages_config(self, system_message: str = None, user_message: str = None) -> 'QwenOcrProcessor':
+        if system_message is not None:
+            self._system_message = system_message
+        if user_message is not None:
+            self._user_message = user_message
+        return self
+
+    def set_text_and_images(self, texts:str, base64_images:List) -> 'QwenOcrCorrector':
+        self._text = texts
+        self._base64_images = base64_images
+        return self
+
+    def _create_messages(self) -> List[Dict[str, str]]:
+        if "{full_text}" in self._user_message:
+            user_message = self._user_message.format(
+                full_text=self._text
+            )
+        elif self._user_message.endswith("\n"):
+            user_message = self._user_message + "" + self._text
+        else:
+            user_message = self._user_message + "\n\n" + self._text
+
+        full_user_message = [
+            {"type": "text", "text": user_message}
+        ]
+
+        for base64_image in self._base64_images:
+            if isinstance(base64_image, dict):
+                full_user_message.append({
+                    "type": "image_url",
+                    "image_url":{
+                        "url": "data:"+base64_image["mime_type"]+";base64,"+base64_image["image"]
+                    }
+                })
+            else:
+                full_user_message.append({
+                    "type": "image_url",
+                    "image_url":{
+                        "url": "data:image/jpeg;base64,"+base64_image
+                    }
+                })
+
+
+        return [
+            {"role": "system", "content": self._system_message},
+            {"role": "user", "content": full_user_message}
+        ]
+
+    def getFixedOcrText(self, text, images):
+        self._text=text
+        self._base64_images = images
+        self.messages = self._create_messages()
+        response = self.process_request_from_client()
+        newText = response.choices[0].message.content
+        return remove_markdown(newText)
+
+    def process_request_from_client(self):
+        if "temperature" not in self._model_config:
+            self._model_config["temperature"]=0
+        if "max_tokens" not in self._model_config or self._model_config["max_tokens"]>16384:
+            self._model_config["max_tokens"]=8192
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=self.messages,
+            **self._model_config
+        )
+        return response
+
 
 
 class QwenOcrCorrector(QwenOcrProcessor):
